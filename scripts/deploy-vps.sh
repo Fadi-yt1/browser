@@ -6,6 +6,7 @@ set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/Fadi-yt1/browser.git}"
 INSTALL_DIR="${INSTALL_DIR:-/opt/browser-in-browser}"
+REPO_BRANCH="${REPO_BRANCH:-main}"
 
 require_root() { [[ $EUID -eq 0 ]] || { echo "Run this as root (sudo)."; exit 1; }; }
 require_root
@@ -21,10 +22,11 @@ fi
 
 if [[ -d "$INSTALL_DIR/.git" ]]; then
   echo "==> updating existing checkout"
-  git -C "$INSTALL_DIR" pull --ff-only
+  git -C "$INSTALL_DIR" fetch --depth 1 origin "$REPO_BRANCH"
+  git -C "$INSTALL_DIR" checkout -B "$REPO_BRANCH" "origin/$REPO_BRANCH"
 else
   echo "==> cloning into $INSTALL_DIR"
-  git clone --depth 1 "$REPO_URL" "$INSTALL_DIR"
+  git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" "$INSTALL_DIR"
 fi
 
 cd "$INSTALL_DIR"

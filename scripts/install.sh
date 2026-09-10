@@ -12,6 +12,7 @@ set -euo pipefail
 REPO_URL="${REPO_URL:-https://github.com/Fadi-yt1/browser.git}"
 INSTALL_DIR="${INSTALL_DIR:-/opt/driftwood}"
 FORCE_RUNTIME="${SESSION_RUNTIME:-}"
+REPO_BRANCH="${REPO_BRANCH:-main}"
 
 say()  { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[33m !! %s\033[0m\n' "$*"; }
@@ -77,9 +78,10 @@ fi
 # --- checkout --------------------------------------------------------------
 say "fetching the source into $INSTALL_DIR"
 if [[ -d "$INSTALL_DIR/.git" ]]; then
-  git -C "$INSTALL_DIR" pull --ff-only
+  git -C "$INSTALL_DIR" fetch --depth 1 origin "$REPO_BRANCH"
+  git -C "$INSTALL_DIR" checkout -B "$REPO_BRANCH" "origin/$REPO_BRANCH"
 else
-  git clone --depth 1 "$REPO_URL" "$INSTALL_DIR"
+  git clone --depth 1 --branch "$REPO_BRANCH" "$REPO_URL" "$INSTALL_DIR"
 fi
 cd "$INSTALL_DIR"
 
@@ -128,7 +130,7 @@ if [[ "$RUNTIME" == "docker" ]]; then
   status_cmd="docker compose -f $INSTALL_DIR/docker-compose.yml logs -f gateway"
 else
   say "installing the Docker-free runtime"
-  SERVICE_USER=driftwood INSTALL_DIR="$INSTALL_DIR" ./scripts/install-local.sh
+  SERVICE_USER=driftwood INSTALL_DIR="$INSTALL_DIR" REPO_BRANCH="$REPO_BRANCH" ./scripts/install-local.sh
   status_cmd="journalctl -u driftwood -f"
 fi
 
