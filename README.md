@@ -27,6 +27,10 @@ manager, streaming, UI — is identical.
 
 ## Quick start
 
+Prebuilt images are published to GHCR on every push to `main`
+(`ghcr.io/fadi-yt1/driftwood-gateway` and `…/driftwood-session`), so a host with Docker
+can skip the build entirely — see [deploy/README.md](deploy/README.md).
+
 **On a server — one command.** It inspects the host, picks the runtime that will
 actually work there (many cheap VPS plans are OpenVZ/LXC containers where Docker cannot
 run), adds swap on small boxes, sizes capacity from real memory, installs and starts:

@@ -37,7 +37,7 @@ the egress rules, builds both images and starts the gateway on port 8080.
 ## 1b. Prebuilt images, no build step
 
 Every push to `main` publishes both images to GHCR, so a host with Docker needs no
-checkout:
+checkout. They are public — no `docker login` needed:
 
 ```bash
 docker network create browser-sessions
@@ -85,6 +85,20 @@ that actually needs memory — the browser sessions — has to be on a real mach
 A front-end deployed this way shows a "point this page at your server" panel until a
 gateway answers, and disables the launch button — it never pretends to be a working
 service with nothing behind it.
+
+## 1e. First-time repository settings
+
+Two things GitHub does not turn on by itself:
+
+- **Pages.** `.github/workflows/pages.yml` deploys through the Pages *Actions* source,
+  which has to be selected once: **Settings → Pages → Build and deployment → Source:
+  GitHub Actions**. Until then the workflow fails immediately, before any step runs,
+  because the `github-pages` environment does not exist. Re-run it after flipping the
+  setting.
+- **Package visibility.** Images published by Actions inherit the repository's
+  visibility. If you ever make this repository private, the images go private with it and
+  `docker pull` starts asking for credentials — check **Packages → driftwood-gateway →
+  Package settings** if a pull unexpectedly needs a login.
 
 ## 2. TLS and a domain
 
