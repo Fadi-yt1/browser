@@ -72,6 +72,22 @@ fi
 
 chown -R "$SERVICE_USER":"$SERVICE_USER" "$INSTALL_DIR"
 
+if [[ ! -d /run/systemd/system ]]; then
+  cat <<MSG
+
+!! This host is not running systemd, so there is no service manager to install into.
+   Everything else is built and configured. Start it by hand with:
+
+     cd $INSTALL_DIR
+     set -a; . ./.env; set +a
+     STATIC_DIR=$INSTALL_DIR/web/dist node server/dist/index.js
+
+   Then put it behind a process supervisor of your choice.
+
+MSG
+  exit 0
+fi
+
 echo "==> installing service"
 sed "s|/opt/driftwood|$INSTALL_DIR|g; s|^User=.*|User=$SERVICE_USER|; s|^Group=.*|Group=$SERVICE_USER|" \
   deploy/driftwood.service > /etc/systemd/system/driftwood.service

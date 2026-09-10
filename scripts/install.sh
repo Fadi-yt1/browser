@@ -36,7 +36,7 @@ apt-get install -y -qq ca-certificates curl git openssl >/dev/null
 # --- swap ------------------------------------------------------------------
 # A 1 GB box with no swap kills Chromium the moment a heavy page loads.
 if (( RAM_MB < 2048 && SWAP_MB < 512 )); then
-  if [[ "$VIRT" == "openvz" || "$VIRT" == "lxc" ]]; then
+  if is_container; then
     warn "low memory and no swap, and this container type cannot add any — expect one session at a time"
   else
     say "adding 2 GB of swap (small host, no swap present)"
@@ -49,6 +49,15 @@ fi
 # --- runtime decision ------------------------------------------------------
 docker_works() { command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; }
 
+# Container-style virtualisation, where a nested Docker daemon usually cannot start.
+# Checked only as a fallback: a working daemon is always preferred when one exists.
+is_container() {
+  case "$VIRT" in
+    openvz|lxc|lxc-libvirt|docker|podman|systemd-nspawn|rkt|wsl) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 RUNTIME=""
 if [[ -n "$FORCE_RUNTIME" ]]; then
   RUNTIME="$FORCE_RUNTIME"
@@ -56,9 +65,9 @@ if [[ -n "$FORCE_RUNTIME" ]]; then
 elif docker_works; then
   RUNTIME=docker
   say "Docker is already working — using container isolation"
-elif [[ "$VIRT" == "openvz" || "$VIRT" == "lxc" ]]; then
+elif is_container; then
   RUNTIME=local
-  say "this is an $VIRT container, where Docker generally cannot run — using the local runtime"
+  say "this is a $VIRT container, where Docker generally cannot run — using the local runtime"
 else
   say "trying to install Docker"
   if curl -fsSL https://get.docker.com | sh >/dev/null 2>&1 && docker_works; then
