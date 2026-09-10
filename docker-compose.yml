@@ -1,0 +1,54 @@
+# Full stack: one gateway + N disposable session containers it starts on demand.
+#
+#   docker compose --profile images build     # build the session browser image
+#   docker compose up -d --build              # start the gateway
+#
+services:
+  gateway:
+    build:
+      context: .
+    image: browser-in-browser/gateway:latest
+    restart: unless-stopped
+    ports:
+      - "${BIND_ADDR:-0.0.0.0}:${PUBLIC_PORT:-8080}:8080"
+    environment:
+      BROWSER_IMAGE: browser-in-browser/session:latest
+      # Reaching sessions over this private network means they publish no host ports.
+      BROWSER_NETWORK: browser-sessions
+      UNLIMITED_MODE: "${UNLIMITED_MODE:-true}"
+      MAX_CONCURRENT_SESSIONS: "${MAX_CONCURRENT_SESSIONS:-4}"
+      MAX_SESSIONS_PER_CLIENT: "${MAX_SESSIONS_PER_CLIENT:-3}"
+      SESSION_TTL_MS: "${SESSION_TTL_MS:-0}"
+      IDLE_TIMEOUT_MS: "${IDLE_TIMEOUT_MS:-90000}"
+      SESSION_MEMORY_MB: "${SESSION_MEMORY_MB:-1024}"
+      SESSION_CPUS: "${SESSION_CPUS:-1}"
+      SCREEN_WIDTH: "${SCREEN_WIDTH:-1280}"
+      SCREEN_HEIGHT: "${SCREEN_HEIGHT:-800}"
+      DEFAULT_START_URL: "${DEFAULT_START_URL:-https://duckduckgo.com}"
+      SESSION_SECRET: "${SESSION_SECRET:-}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+    volumes:
+      # The orchestrator needs the daemon socket to start sibling containers.
+      # This is root-equivalent on the host: run this stack on a dedicated box.
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - sessions
+
+  # Build-only service. It exists so `docker compose --profile images build`
+  # produces the session image the gateway launches; it never stays running.
+  session-image:
+    build:
+      context: ./browser-image
+    image: browser-in-browser/session:latest
+    profiles: ["images"]
+    command: ["true"]
+    entrypoint: ["/bin/sh", "-c"]
+    restart: "no"
+
+networks:
+  sessions:
+    name: browser-sessions
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.240.0/22

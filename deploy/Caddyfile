@@ -1,0 +1,27 @@
+# Automatic HTTPS in front of the gateway.
+#   sudo cp deploy/Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
+browser.example.com {
+	encode zstd gzip
+
+	# The RFB stream: no buffering, no timeout, long-lived.
+	@ws path /ws/*
+	handle @ws {
+		reverse_proxy 127.0.0.1:8080 {
+			flush_interval -1
+			transport http {
+				read_timeout 0
+				write_timeout 0
+			}
+		}
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:8080
+	}
+
+	header {
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Content-Type-Options nosniff
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+	}
+}

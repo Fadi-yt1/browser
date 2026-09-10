@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <!-- Minimal WM: no decorations, no desktop menu. The remote browser owns the
+       whole screen so the stream looks like a bare browser window. -->
+  <theme>
+    <name>Clearlooks</name>
+    <titleLayout>NLIMC</titleLayout>
+    <keepBorder>no</keepBorder>
+    <animateIconify>no</animateIconify>
+  </theme>
+  <desktops>
+    <number>1</number>
+    <names><name>surf</name></names>
+  </desktops>
+  <applications>
+    <application class="*">
+      <decor>no</decor>
+      <maximized>yes</maximized>
+      <position force="yes"><x>0</x><y>0</y></position>
+    </application>
+  </applications>
+  <keyboard>
+    <!-- Swallow WM shortcuts so every keystroke reaches the browser. -->
+    <chainQuitKey>C-g</chainQuitKey>
+  </keyboard>
+  <mouse>
+    <context name="Frame"><mousebind button="A-Left" action="Press"/></context>
+  </mouse>
+</openbox_config>

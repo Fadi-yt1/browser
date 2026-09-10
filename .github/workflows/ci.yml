@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install and typecheck gateway
+        working-directory: server
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Install and build web client
+        working-directory: web
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Validate compose file
+        run: docker compose config -q
+
+      - name: Shell script syntax
+        run: bash -n scripts/*.sh browser-image/entrypoint.sh
+
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build session image
+        run: docker build -t browser-in-browser/session:ci ./browser-image
+      - name: Build gateway image
+        run: docker build -t browser-in-browser/gateway:ci .
+      - name: Boot the session image and check the control agent answers
+        run: |
+          docker run -d --name smoke --init --shm-size=512m \
+            -p 127.0.0.1:6070:6070 -e VNC_PASSWORD=citest \
+            browser-in-browser/session:ci
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:6070/healthz; then echo "agent up"; exit 0; fi
+            sleep 2
+          done
+          echo "agent never came up"; docker logs smoke; exit 1
