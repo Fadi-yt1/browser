@@ -165,8 +165,10 @@ export function Landing({ onLaunch, busy, notice, error, queue }: Props) {
             </div>
             {connectError && <p className="connect__error">{connectError}</p>}
             <small>
-              Stored in this browser only. Run a gateway with{' '}
-              <code>docker compose up -d</code> — see the{' '}
+              This is the address of a machine running the Driftwood server — the one you ran the
+              installer on — usually <code>http://your-server-ip:8080</code>. Not a storage, CDN or
+              IPFS address: those serve files, they cannot run a browser. Stored in this browser
+              only. See the{' '}
               <a href="https://github.com/Fadi-yt1/browser#quick-start" target="_blank" rel="noreferrer">
                 setup guide
               </a>
