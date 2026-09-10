@@ -93,6 +93,21 @@ The URL bar in the toolbar drives the remote Chromium through the DevTools proto
 navigation, history and reload work without the visitor hunting for the remote window's
 own chrome.
 
+## When something is wrong
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Fadi-yt1/browser/main/scripts/doctor.sh | sudo bash
+```
+
+Checks the host, every binary a session needs (and whether each one actually *runs*,
+not just whether it exists), starts a throwaway X display to prove a browser can paint on
+it, then reports on the install, the service and the gateway. Read-only; it starts nothing
+permanent.
+
+The failure it exists for: **the site loads but every session fails.** That is almost
+always Ubuntu's `chromium` package, which is a snap wrapper that does nothing when snapd
+is unavailable — normal on container-based VPS plans.
+
 ## Capacity, honestly
 
 Each session is a real browser: budget roughly **1 CPU core and 1.2 GB of RAM** for one.

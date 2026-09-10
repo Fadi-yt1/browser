@@ -161,6 +161,15 @@ the container gets killed instead of the host swapping.
 Bandwidth, not CPU, is usually what bites first on a busy public instance. Every session
 streams its screen continuously while someone is scrolling.
 
+## 3b. Diagnosing a broken install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Fadi-yt1/browser/main/scripts/doctor.sh | sudo bash
+```
+
+Prints a pass/fail line for the host, each required binary, a live X-and-browser smoke
+test, the install, the service and the gateway, then names the most likely fix.
+
 ## 4. Operating it
 
 ```bash
