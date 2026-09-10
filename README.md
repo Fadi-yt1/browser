@@ -27,7 +27,15 @@ manager, streaming, UI — is identical.
 
 ## Quick start
 
-**With Docker** (recommended, isolated):
+**On a server — one command.** It inspects the host, picks the runtime that will
+actually work there (many cheap VPS plans are OpenVZ/LXC containers where Docker cannot
+run), adds swap on small boxes, sizes capacity from real memory, installs and starts:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Fadi-yt1/browser/main/scripts/install.sh | sudo bash
+```
+
+**With Docker**, by hand (recommended, isolated):
 
 ```bash
 git clone https://github.com/Fadi-yt1/browser.git

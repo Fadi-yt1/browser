@@ -4,9 +4,27 @@ Every session is a real X server and browser, so plan on about a gigabyte of RAM
 That is the floor no configuration gets you under, and it is why free PaaS tiers cannot
 host this. A small VPS is the realistic minimum.
 
-Pick one of the three paths below.
+## 0. The one command  *(start here)*
 
-## 1. Docker, one command on a fresh Debian/Ubuntu host  *(recommended)*
+```bash
+curl -fsSL https://raw.githubusercontent.com/Fadi-yt1/browser/main/scripts/install.sh | sudo bash
+```
+
+It decides everything the host forces on you:
+
+| It checks | Because |
+|-----------|---------|
+| `systemd-detect-virt` | OpenVZ and LXC plans — common on free and budget VPS offers — cannot run Docker, so it uses the local runtime there |
+| Whether `docker info` works | An already-working daemon is used as-is; otherwise it tries to install one and falls back rather than failing |
+| Total RAM and cores | Sets `MAX_CONCURRENT_SESSIONS` from memory that exists, not optimism |
+| Swap | Adds 2 GB on a small host, because a 1 GB box with no swap kills Chromium on the first heavy page |
+| RAM under 1.4 GB | Drops the session screen to 1024x768, caps session memory at 640 MB, and switches to a 20-minute extendable TTL so one visitor cannot park the only browser |
+
+It refuses outright under 700 MB of RAM instead of installing something that cannot work.
+
+The sections below are the manual equivalents, if you would rather drive it yourself.
+
+## 1. Docker, one command on a fresh Debian/Ubuntu host
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Fadi-yt1/browser/main/scripts/deploy-vps.sh | sudo bash
