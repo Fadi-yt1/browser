@@ -95,6 +95,20 @@ own chrome.
 
 ## When something is wrong
 
+Fix it and prove it works, in one command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Fadi-yt1/browser/main/scripts/finish-setup.sh -o finish.sh
+sudo bash finish.sh
+```
+
+Installs a browser that actually runs if the one present does not, fills in any missing
+X pieces, starts the gateway, then **launches a real session and waits for it to reach
+`ready`** before reporting success — so it cannot claim to be working while it is not.
+Idempotent; safe to re-run.
+
+To diagnose without changing anything:
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Fadi-yt1/browser/main/scripts/doctor.sh | sudo bash
 ```
