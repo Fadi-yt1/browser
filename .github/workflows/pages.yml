@@ -1,0 +1,47 @@
+# Publishes the front-end to GitHub Pages. The page ships with no gateway of its
+# own: visitors point it at a Driftwood server they run, or you bake one in with
+# the API_BASE variable. Static hosting is free; the browser backend is not.
+name: Deploy front-end to Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Build
+        working-directory: web
+        env:
+          # Repository variable API_BASE, when set, pre-fills the gateway address.
+          VITE_API_BASE: ${{ vars.API_BASE }}
+          BASE_PATH: /${{ github.event.repository.name }}/
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+      - id: deployment
+        uses: actions/deploy-pages@v4

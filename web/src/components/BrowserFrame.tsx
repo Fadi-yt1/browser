@@ -29,6 +29,8 @@ export function BrowserFrame({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const rfbRef = useRef<RFB | null>(null);
+  /** Set once the connection is gone, so teardown does not disconnect it twice. */
+  const goneRef = useRef(false);
   const [status, setStatus] = useState<Status>('connecting');
 
   // One RFB per session id: re-running this on every prop change would drop the stream.
@@ -42,6 +44,7 @@ export function BrowserFrame({
       wsProtocols: ['binary'],
     });
     rfbRef.current = rfb;
+    goneRef.current = false;
     onReady?.(rfb);
     rfb.background = '#0b0f17';
     rfb.showDotCursor = true;
@@ -54,6 +57,7 @@ export function BrowserFrame({
 
     const handleConnect = () => setState('connected');
     const handleDisconnect = (event: Event) => {
+      goneRef.current = true;
       setState('disconnected');
       onDisconnect?.(Boolean((event as CustomEvent<{ clean: boolean }>).detail?.clean));
     };
@@ -70,10 +74,13 @@ export function BrowserFrame({
       rfb.removeEventListener('connect', handleConnect);
       rfb.removeEventListener('disconnect', handleDisconnect);
       rfb.removeEventListener('clipboard', handleClipboard);
-      try {
-        rfb.disconnect();
-      } catch {
-        /* already gone */
+      // Disconnecting an already-closed RFB makes noVNC complain; skip it.
+      if (!goneRef.current) {
+        try {
+          rfb.disconnect();
+        } catch {
+          /* already gone */
+        }
       }
       rfbRef.current = null;
       onReady?.(null);
@@ -81,9 +88,11 @@ export function BrowserFrame({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id, wsPath]);
 
+  // Only touch the connection while it is live: noVNC warns loudly if these are
+  // set on an RFB that has already disconnected.
   useEffect(() => {
     const rfb = rfbRef.current;
-    if (!rfb) return;
+    if (!rfb || status !== 'connected') return;
     rfb.scaleViewport = fitToWindow;
     rfb.clipViewport = !fitToWindow;
     rfb.dragViewport = !fitToWindow;
@@ -91,7 +100,7 @@ export function BrowserFrame({
 
   useEffect(() => {
     const rfb = rfbRef.current;
-    if (!rfb) return;
+    if (!rfb || status !== 'connected') return;
     rfb.qualityLevel = quality;
     // Higher quality means less aggressive compression; keep them in step.
     rfb.compressionLevel = quality >= 8 ? 2 : quality >= 5 ? 4 : 6;

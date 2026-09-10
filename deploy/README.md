@@ -49,6 +49,25 @@ creates a `driftwood` service user and starts `driftwood.service` on port 8080.
 **This runtime gives sessions no isolation from the host.** Use it on a machine you own
 and control, not for a public instance. See [HARDENING.md](HARDENING.md).
 
+## 1d. Split hosting: free static front-end + your own backend
+
+The React client can live anywhere static hosting is free (GitHub Pages, Netlify,
+Cloudflare Pages, an object store) and talk to a gateway running elsewhere. Only the part
+that actually needs memory — the browser sessions — has to be on a real machine.
+
+- `.github/workflows/pages.yml` builds `web/` and publishes it to GitHub Pages on every
+  push to `main`. Enable Pages for the repository (Settings → Pages → Source: GitHub
+  Actions) and it runs itself.
+- Set the repository variable `API_BASE` to your gateway's public URL to bake it in.
+  Without it, the page asks each visitor for a gateway address and remembers it in their
+  browser's local storage.
+- The gateway already sends permissive CORS headers, so a cross-origin front-end works as
+  it is. Narrow `CORS_ORIGIN` to your front-end's origin once you know it.
+
+A front-end deployed this way shows a "point this page at your server" panel until a
+gateway answers, and disables the launch button — it never pretends to be a working
+service with nothing behind it.
+
 ## 2. TLS and a domain
 
 The clipboard API and fullscreen need a secure context, so run it behind HTTPS in

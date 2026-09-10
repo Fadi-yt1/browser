@@ -48,7 +48,13 @@ SESSION_RUNTIME=local SESSION_SECRET=$(openssl rand -hex 32) \
 ```
 
 Either way, open <http://localhost:8080>. For a real domain with TLS, a one-command VPS
-install, or prebuilt images, see [deploy/README.md](deploy/README.md).
+install, prebuilt GHCR images, or free static hosting for the front-end, see
+[deploy/README.md](deploy/README.md).
+
+The client can also be hosted separately from the gateway: it reads `VITE_API_BASE` at
+build time, and otherwise asks the visitor for a gateway address and remembers it locally.
+So the site itself can sit on free static hosting while only the browser backend needs a
+machine with memory.
 
 ### Development
 

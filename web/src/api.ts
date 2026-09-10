@@ -29,6 +29,8 @@ export interface Stats {
   sessionTtlMs: number;
 }
 
+import { apiUrl, wsUrl } from './backend';
+
 export class ApiError extends Error {
   constructor(message: string, public readonly status: number) {
     super(message);
@@ -36,7 +38,7 @@ export class ApiError extends Error {
 }
 
 const request = async <T>(path: string, init?: RequestInit & { token?: string }): Promise<T> => {
-  const res = await fetch(path, {
+  const res = await fetch(apiUrl(path), {
     ...init,
     headers: {
       ...(init?.body ? { 'content-type': 'application/json' } : {}),
@@ -59,7 +61,7 @@ export async function launchSession(opts: {
   url?: string;
   ticket?: string;
 }): Promise<LaunchResult> {
-  const res = await fetch('/api/sessions', {
+  const res = await fetch(apiUrl('/api/sessions'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(opts),
@@ -114,11 +116,8 @@ export const getPageState = (id: string, token: string) =>
 /** Beacon-style teardown so a closing tab still releases its container. */
 export const releaseOnUnload = (id: string, token: string): void => {
   const blob = new Blob([JSON.stringify({ token })], { type: 'application/json' });
-  if (!navigator.sendBeacon(`/api/sessions/${id}/heartbeat?token=${token}&bye=1`, blob)) return;
-  void fetch(`/api/sessions/${id}?token=${token}`, { method: 'DELETE', keepalive: true }).catch(() => {});
+  navigator.sendBeacon(apiUrl(`/api/sessions/${id}/heartbeat?token=${token}&bye=1`), blob);
+  void fetch(apiUrl(`/api/sessions/${id}?token=${token}`), { method: 'DELETE', keepalive: true }).catch(() => {});
 };
 
-export const websocketUrl = (wsPath: string): string => {
-  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${proto}//${location.host}${wsPath}`;
-};
+export const websocketUrl = wsUrl;

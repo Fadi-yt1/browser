@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getStats, type Stats } from '../api';
+import { getApiBase, isSameOrigin, setApiBase } from '../backend';
 
 interface Props {
   onLaunch: (url?: string) => void;
@@ -62,13 +63,20 @@ const faq = [
 export function Landing({ onLaunch, busy, notice, error, queue }: Props) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [url, setUrl] = useState('');
+  const [reachable, setReachable] = useState<boolean | null>(null);
+  const [serverDraft, setServerDraft] = useState(getApiBase());
 
   useEffect(() => {
     let stopped = false;
     const load = () =>
-      getStats()
-        .then((next) => !stopped && setStats(next))
-        .catch(() => {});
+      getStats().then(
+        (next) => {
+          if (stopped) return;
+          setStats(next);
+          setReachable(true);
+        },
+        () => !stopped && setReachable(false),
+      );
     void load();
     const timer = window.setInterval(load, 10_000);
     return () => {
@@ -81,9 +89,12 @@ export function Landing({ onLaunch, busy, notice, error, queue }: Props) {
     <div className="landing">
       <nav className="landing__nav">
         <span className="brand">🛟 Driftwood</span>
-        <a className="landing__ghost" href="https://github.com/Fadi-yt1/browser" target="_blank" rel="noreferrer">
-          Source
-        </a>
+        <span className="landing__navRight">
+          {!isSameOrigin() && reachable && <span className="chip chip--server">server: {getApiBase()}</span>}
+          <a className="landing__ghost" href="https://github.com/Fadi-yt1/browser" target="_blank" rel="noreferrer">
+            Source
+          </a>
+        </span>
       </nav>
 
       <main className="hero">
@@ -94,6 +105,42 @@ export function Landing({ onLaunch, busy, notice, error, queue }: Props) {
           Open a disposable, sandboxed Chromium that runs on our server and streams into this tab. Free,
           unlimited, no account — and it forgets everything the second you close it.
         </p>
+
+        {reachable === false && (
+          <form
+            className="connect"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setApiBase(serverDraft);
+              location.reload();
+            }}
+          >
+            <h2>Point this page at your server</h2>
+            <p>
+              {isSameOrigin()
+                ? 'No browser server is answering here. If you are running one elsewhere, give its address; otherwise start one with the instructions in the repository.'
+                : `Could not reach ${getApiBase()}. Check that the gateway is running and reachable from this device.`}
+            </p>
+            <div className="connect__row">
+              <input
+                value={serverDraft}
+                onChange={(event) => setServerDraft(event.target.value)}
+                placeholder="https://browser.your-domain.tld"
+                aria-label="Gateway address"
+                spellCheck={false}
+              />
+              <button type="submit">Connect</button>
+            </div>
+            <small>
+              Stored in this browser only. Run a gateway with{' '}
+              <code>docker compose up -d</code> — see the{' '}
+              <a href="https://github.com/Fadi-yt1/browser#quick-start" target="_blank" rel="noreferrer">
+                setup guide
+              </a>
+              .
+            </small>
+          </form>
+        )}
 
         <form
           className="hero__launch"
@@ -109,7 +156,7 @@ export function Landing({ onLaunch, busy, notice, error, queue }: Props) {
             aria-label="Starting address"
             spellCheck={false}
           />
-          <button type="submit" disabled={busy}>
+          <button type="submit" disabled={busy || reachable === false}>
             {busy ? 'Starting…' : 'Launch browser'}
           </button>
         </form>
