@@ -60,11 +60,34 @@ const faq = [
   },
 ];
 
+/**
+ * A page served over HTTPS cannot talk to a plain-HTTP gateway: the browser blocks
+ * it as mixed content, silently, which reads as "the server is down". Catch it here
+ * with an explanation instead.
+ */
+function validateGateway(value: string): string | null {
+  const raw = value.trim();
+  if (!raw) return 'Enter the address your gateway is reachable at.';
+
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return 'That is not a valid address. Include the scheme, for example https://browser.example.com';
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return 'The address must start with http:// or https://';
+  if (location.protocol === 'https:' && url.protocol === 'http:') {
+    return 'This page is served over HTTPS, so your browser will block a plain http:// gateway. Put TLS in front of the gateway and use https://, or open this site over http:// instead.';
+  }
+  return null;
+}
+
 export function Landing({ onLaunch, busy, notice, error, queue }: Props) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [url, setUrl] = useState('');
   const [reachable, setReachable] = useState<boolean | null>(null);
   const [serverDraft, setServerDraft] = useState(getApiBase());
+  const [connectError, setConnectError] = useState<string | null>(null);
 
   useEffect(() => {
     let stopped = false;
@@ -111,6 +134,8 @@ export function Landing({ onLaunch, busy, notice, error, queue }: Props) {
             className="connect"
             onSubmit={(event) => {
               event.preventDefault();
+              const problem = validateGateway(serverDraft);
+              if (problem) return setConnectError(problem);
               setApiBase(serverDraft);
               location.reload();
             }}
@@ -131,6 +156,7 @@ export function Landing({ onLaunch, busy, notice, error, queue }: Props) {
               />
               <button type="submit">Connect</button>
             </div>
+            {connectError && <p className="connect__error">{connectError}</p>}
             <small>
               Stored in this browser only. Run a gateway with{' '}
               <code>docker compose up -d</code> — see the{' '}

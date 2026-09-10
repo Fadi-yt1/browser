@@ -86,6 +86,17 @@ A front-end deployed this way shows a "point this page at your server" panel unt
 gateway answers, and disables the launch button — it never pretends to be a working
 service with nothing behind it.
 
+**The gateway needs TLS for this to work.** A front-end served over HTTPS — which Pages
+always is — cannot call a plain `http://` gateway: the browser blocks it as mixed content,
+silently, and it reads as "the server is down". The connect panel catches that and says so
+rather than letting you guess. Either put TLS in front of the gateway (section 2) and use
+`https://`, or serve the front-end over plain HTTP too.
+
+If Pages is set to a **branch** source rather than GitHub Actions, run
+`./scripts/publish-pages.sh`, then commit `index.html`, `assets/` and `.nojekyll`. That is
+how the site currently deploys here; switching the source to GitHub Actions supersedes it
+and keeps build output out of the tree.
+
 ## 1e. First-time repository settings
 
 Two things GitHub does not turn on by itself:

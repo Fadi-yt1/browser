@@ -315,3 +315,12 @@ input:focus { border-color: #3f5b8b; box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.
   font-size: 0.85em;
 }
 .connect a { color: var(--accent); }
+.connect__error {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid #4c1d24;
+  border-radius: 8px;
+  background: #241318;
+  color: #fca5a5;
+  font-size: 0.88rem;
+}
