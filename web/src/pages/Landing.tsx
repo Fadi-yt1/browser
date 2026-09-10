@@ -88,6 +88,7 @@ export function Landing({ onLaunch, busy, notice, error, queue }: Props) {
   const [reachable, setReachable] = useState<boolean | null>(null);
   const [serverDraft, setServerDraft] = useState(getApiBase());
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [probeError, setProbeError] = useState<string | null>(null);
 
   useEffect(() => {
     let stopped = false;
@@ -98,7 +99,11 @@ export function Landing({ onLaunch, busy, notice, error, queue }: Props) {
           setStats(next);
           setReachable(true);
         },
-        () => !stopped && setReachable(false),
+        (err: unknown) => {
+          if (stopped) return;
+          setReachable(false);
+          setProbeError(err instanceof Error ? err.message : null);
+        },
       );
     void load();
     const timer = window.setInterval(load, 10_000);
@@ -142,9 +147,11 @@ export function Landing({ onLaunch, busy, notice, error, queue }: Props) {
           >
             <h2>Point this page at your server</h2>
             <p>
-              {isSameOrigin()
-                ? 'No browser server is answering here. If you are running one elsewhere, give its address; otherwise start one with the instructions in the repository.'
-                : `Could not reach ${getApiBase()}. Check that the gateway is running and reachable from this device.`}
+              {probeError
+                ? probeError
+                : isSameOrigin()
+                  ? 'No browser server is answering here. If you are running one elsewhere, give its address; otherwise start one with the instructions in the repository.'
+                  : `Could not reach ${getApiBase()}. Check that the gateway is running and reachable from this device.`}
             </p>
             <div className="connect__row">
               <input

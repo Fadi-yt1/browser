@@ -48,7 +48,23 @@ const request = async <T>(path: string, init?: RequestInit & { token?: string })
   });
 
   if (res.status === 204) return undefined as T;
-  const body = await res.json().catch(() => ({}));
+
+  // Anything that is not JSON means we are not talking to a gateway: a provider
+  // landing page, a proxy error, a captive portal. Swallowing it produced a page
+  // that rendered "undefined" instead of saying the address was wrong.
+  const text = await res.text();
+  let body: unknown = {};
+  if (text.trim()) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      throw new ApiError(
+        `That address answered with ${res.status} but did not return gateway data. Check it points at a Driftwood gateway.`,
+        res.status,
+      );
+    }
+  }
+
   if (!res.ok && res.status !== 202) {
     throw new ApiError((body as { error?: string }).error || `Request failed (${res.status})`, res.status);
   }
@@ -82,7 +98,21 @@ export async function launchSession(opts: {
 export const pollQueue = (ticket: string) =>
   request<{ ticket: string; position: number; ready: boolean }>(`/api/queue/${ticket}`);
 
-export const getStats = () => request<Stats>('/api/stats');
+/** Shape check: a 200 from something that is not a gateway must not reach the UI. */
+const looksLikeStats = (value: unknown): value is Stats =>
+  typeof value === 'object' &&
+  value !== null &&
+  typeof (value as Stats).capacity === 'number' &&
+  typeof (value as Stats).active === 'number' &&
+  typeof (value as Stats).queued === 'number';
+
+export const getStats = async (): Promise<Stats> => {
+  const body = await request<unknown>('/api/stats');
+  if (!looksLikeStats(body)) {
+    throw new ApiError('That address answered, but it is not a Driftwood gateway.', 200);
+  }
+  return body;
+};
 
 export const heartbeat = (id: string, token: string) =>
   request<{ session: PublicSession }>(`/api/sessions/${id}/heartbeat`, { method: 'POST', token });
