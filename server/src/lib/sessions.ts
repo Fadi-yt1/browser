@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { config } from '../config.js';
 import { log } from './log.js';
-import { destroyContainer, launchBrowser } from './runtime.js';
+import { runtime } from './runtime.js';
 import { randomId, randomVncPassword, signSessionToken } from './tokens.js';
 
 export type SessionState = 'starting' | 'ready' | 'closing';
@@ -19,7 +19,7 @@ export interface Session {
   height: number;
   startUrl: string;
   vncPassword: string;
-  containerId?: string;
+  handle?: string;
   vncHost?: string;
   vncPort?: number;
   agentBase?: string;
@@ -151,7 +151,7 @@ export class SessionManager extends EventEmitter {
     this.sessions.set(id, session);
 
     try {
-      const running = await launchBrowser({
+      const running = await runtime.launch({
         sessionId: id,
         width: session.width,
         height: session.height,
@@ -160,7 +160,7 @@ export class SessionManager extends EventEmitter {
       });
       // The client may have given up while the container was booting.
       if (!this.sessions.has(id)) {
-        await destroyContainer(running.containerId);
+        await runtime.destroy(running.handle);
         throw new Error('session was cancelled during startup');
       }
       Object.assign(session, running, { state: 'ready' as const, lastSeenAt: Date.now() });
@@ -209,7 +209,7 @@ export class SessionManager extends EventEmitter {
     session.state = 'closing';
     this.sessions.delete(id);
     this.emit('closed', { session, reason });
-    if (session.containerId) await destroyContainer(session.containerId);
+    if (session.handle) await runtime.destroy(session.handle);
     log.info('session closed', { sessionId: id, reason, lifetimeMs: Date.now() - session.createdAt });
     this.promote();
   }

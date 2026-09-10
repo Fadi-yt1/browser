@@ -44,6 +44,7 @@ if [[ -n "${VNC_PASSWORD:-}" ]]; then
 fi
 
 log "starting Chromium"
+export GOOGLE_API_KEY="no" GOOGLE_DEFAULT_CLIENT_ID="no" GOOGLE_DEFAULT_CLIENT_SECRET="no"
 chromium \
   --user-data-dir="$PROFILE_DIR" \
   --window-position=0,0 \
@@ -51,6 +52,8 @@ chromium \
   --remote-debugging-port=9222 \
   --remote-allow-origins=http://127.0.0.1:9222 \
   --no-sandbox \
+  --test-type \
+  --disable-infobars \
   --no-first-run \
   --no-default-browser-check \
   --disable-dev-shm-usage \

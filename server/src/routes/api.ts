@@ -3,7 +3,7 @@ import { config } from '../config.js';
 import { clientKey } from '../lib/client.js';
 import { log } from '../lib/log.js';
 import { RateLimiter } from '../lib/ratelimit.js';
-import { dockerPing } from '../lib/runtime.js';
+import { runtime } from '../lib/runtime.js';
 import {
   CapacityError,
   LimitError,
@@ -62,8 +62,8 @@ async function callAgent(
 export const api = Router();
 
 api.get('/health', async (_req, res) => {
-  const docker = await dockerPing();
-  res.status(docker ? 200 : 503).json({ ok: docker, docker, ...sessionManager.stats() });
+  const ready = await runtime.ping();
+  res.status(ready ? 200 : 503).json({ ok: ready, runtime: runtime.name, ...sessionManager.stats() });
 });
 
 api.get('/stats', (_req, res) => {

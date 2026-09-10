@@ -17,7 +17,14 @@ const minutes = (n: number) => n * 60_000;
  */
 const unlimited = bool(process.env.UNLIMITED_MODE, true);
 
+/**
+ * 'docker' gives every session its own hardened container. 'local' runs sessions as
+ * plain processes on this host — no isolation, so only for a machine you control.
+ */
+const runtime = process.env.SESSION_RUNTIME === 'local' ? 'local' : 'docker';
+
 export const config = {
+  runtime,
   port: num(process.env.PORT, 8080),
   host: process.env.HOST || '0.0.0.0',
   trustProxy: bool(process.env.TRUST_PROXY, true),
@@ -46,6 +53,12 @@ export const config = {
     startupTimeoutMs: num(process.env.SESSION_STARTUP_TIMEOUT_MS, 45_000),
     labelKey: 'app',
     labelValue: 'browser-in-browser',
+  },
+
+  local: {
+    /** Overrides for the two files the local runtime borrows from browser-image/. */
+    agentPath: process.env.LOCAL_AGENT_PATH || '',
+    openboxConfig: process.env.LOCAL_OPENBOX_CONFIG || '',
   },
 
   screen: {

@@ -1,10 +1,12 @@
 # Deploying
 
-The stack needs one thing free hosting tiers do not give you: a Docker daemon it can talk
-to, plus about a gigabyte of RAM per concurrent session. A small VPS is the realistic
-minimum.
+Every session is a real X server and browser, so plan on about a gigabyte of RAM each.
+That is the floor no configuration gets you under, and it is why free PaaS tiers cannot
+host this. A small VPS is the realistic minimum.
 
-## 1. One command on a fresh Debian/Ubuntu host
+Pick one of the three paths below.
+
+## 1. Docker, one command on a fresh Debian/Ubuntu host  *(recommended)*
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Fadi-yt1/browser/main/scripts/deploy-vps.sh | sudo bash
@@ -13,6 +15,39 @@ curl -fsSL https://raw.githubusercontent.com/Fadi-yt1/browser/main/scripts/deplo
 It installs Docker, clones the repo to `/opt/browser-in-browser`, generates a
 `SESSION_SECRET`, sizes `MAX_CONCURRENT_SESSIONS` from the machine's cores and RAM, applies
 the egress rules, builds both images and starts the gateway on port 8080.
+
+## 1b. Prebuilt images, no build step
+
+Every push to `main` publishes both images to GHCR, so a host with Docker needs no
+checkout:
+
+```bash
+docker network create browser-sessions
+docker run -d --name driftwood \
+  -p 8080:8080 \
+  --network browser-sessions \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -e BROWSER_IMAGE=ghcr.io/fadi-yt1/driftwood-session:latest \
+  -e BROWSER_NETWORK=browser-sessions \
+  -e SESSION_SECRET="$(openssl rand -hex 32)" \
+  -e MAX_CONCURRENT_SESSIONS=4 \
+  ghcr.io/fadi-yt1/driftwood-gateway:latest
+```
+
+## 1c. No Docker at all
+
+For a host where Docker is unavailable or unwanted, the `local` runtime runs sessions as
+plain processes under a systemd service:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Fadi-yt1/browser/main/scripts/install-local.sh | sudo bash
+```
+
+It installs Xvfb, x11vnc, openbox and Chromium, builds the app into `/opt/driftwood`,
+creates a `driftwood` service user and starts `driftwood.service` on port 8080.
+
+**This runtime gives sessions no isolation from the host.** Use it on a machine you own
+and control, not for a public instance. See [HARDENING.md](HARDENING.md).
 
 ## 2. TLS and a domain
 

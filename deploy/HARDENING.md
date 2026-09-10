@@ -3,6 +3,15 @@
 Running this in public means running an open browser for strangers. This page is the list
 of things to decide before you do.
 
+## Choose the Docker runtime
+
+`SESSION_RUNTIME=local` runs sessions as ordinary processes beside the gateway: same
+kernel, same filesystem, same network namespace, no resource caps. A browser exploit in a
+local-runtime session is a host compromise, with nothing in between. It is there for
+development and for single-user machines.
+
+Everything below assumes `SESSION_RUNTIME=docker`, the default.
+
 ## The four real risks
 
 ### 1. The gateway holds the Docker socket

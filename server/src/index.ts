@@ -5,7 +5,7 @@ import { config } from './config.js';
 import { log } from './lib/log.js';
 import { sessionManager } from './lib/sessions.js';
 import { attachVncBridge } from './lib/vnc-bridge.js';
-import { ensureImage, reapOrphans } from './lib/runtime.js';
+import { runtime } from './lib/runtime.js';
 import { api } from './routes/api.js';
 
 const app = express();
@@ -39,17 +39,21 @@ server.keepAliveTimeout = 61_000;
 attachVncBridge(server);
 
 async function main(): Promise<void> {
-  await reapOrphans();
+  await runtime.reapOrphans();
   try {
-    await ensureImage();
+    await runtime.prepare();
   } catch (err) {
-    log.error('browser image unavailable — sessions will fail until it is built', { err: String(err) });
+    log.error('session runtime is not ready — launches will fail until this is fixed', {
+      runtime: runtime.name,
+      err: String(err),
+    });
   }
   sessionManager.start();
 
   server.listen(config.port, config.host, () => {
     log.info('gateway listening', {
       port: config.port,
+      runtime: runtime.name,
       capacity: config.maxConcurrentSessions,
       unlimited: config.unlimited,
       sessionTtlMs: config.sessionTtlMs,
@@ -64,7 +68,7 @@ const shutdown = async (signal: string) => {
   log.info('shutting down', { signal });
   server.close();
   await sessionManager.stop();
-  await reapOrphans();
+  await runtime.reapOrphans();
   process.exit(0);
 };
 

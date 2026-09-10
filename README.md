@@ -15,7 +15,19 @@ visitor's tab ──WebSocket──▶ gateway ──TCP/RFB──▶ session co
                         Docker API (spawn/reap)
 ```
 
+## Two ways to run a session
+
+| Runtime | What it does | Use it when |
+|---------|--------------|-------------|
+| `docker` (default) | One hardened container per session — dropped capabilities, memory and PID caps, private network | Anything public. This is the isolation boundary. |
+| `local` | Sessions are plain processes on the host: their own X display, Chromium profile and VNC server, no Docker | A machine you own, or development. **No isolation from the host.** |
+
+Switch with `SESSION_RUNTIME=docker|local`. Everything above the runtime — queue, session
+manager, streaming, UI — is identical.
+
 ## Quick start
+
+**With Docker** (recommended, isolated):
 
 ```bash
 git clone https://github.com/Fadi-yt1/browser.git
@@ -25,8 +37,18 @@ docker compose --profile images build      # build the session browser image
 docker compose up -d --build gateway       # start the gateway
 ```
 
-Open <http://localhost:8080>. To put it on a real domain with TLS, see
-[deploy/README.md](deploy/README.md).
+**Without Docker** (a VPS, or your laptop):
+
+```bash
+sudo apt install -y xvfb x11vnc openbox xdotool xclip x11-utils chromium
+(cd server && npm install && npm run build)
+(cd web && npm install && npm run build)
+SESSION_RUNTIME=local SESSION_SECRET=$(openssl rand -hex 32) \
+  STATIC_DIR=$PWD/web/dist node server/dist/index.js
+```
+
+Either way, open <http://localhost:8080>. For a real domain with TLS, a one-command VPS
+install, or prebuilt images, see [deploy/README.md](deploy/README.md).
 
 ### Development
 
@@ -34,8 +56,8 @@ Open <http://localhost:8080>. To put it on a real domain with TLS, see
 ./scripts/dev.sh     # gateway on :8080 with hot reload, Vite app on :5173
 ```
 
-In dev there is no shared Docker network, so session containers publish their ports on
-`127.0.0.1` instead. Nothing else changes.
+In dev the Docker runtime publishes session ports on `127.0.0.1` instead of using a shared
+network. Nothing else changes.
 
 ## How a session works
 
@@ -71,9 +93,11 @@ past the cap, visitors wait in line. Raise the cap by adding hardware, not by ed
 number past what the box can carry (an oversubscribed host swaps, and every session gets
 unusable at once).
 
-> **Free-tier hosts (Render, Fly, Railway, Koyeb…) will not run this.** It needs a Docker
-> daemon it can talk to and roughly a gigabyte per session. The cheapest thing that
-> actually works is a small VPS — see [deploy/README.md](deploy/README.md).
+> **Free-tier PaaS hosts (Render, Fly, Railway, Koyeb…) will not run this.** A session is a
+> real X server and browser, needing roughly a gigabyte of RAM and, for the Docker runtime,
+> a daemon it can talk to. The cheapest thing that actually works is a small VPS — see
+> [deploy/README.md](deploy/README.md). The `local` runtime lowers the bar (no Docker
+> needed), but not the memory.
 
 ## Configuration
 
@@ -90,6 +114,7 @@ list. The ones worth knowing:
 | `SESSION_MEMORY_MB` / `SESSION_CPUS` | `1024` / `1` | Per-container limits. |
 | `SESSION_SECRET` | random per boot | Signs session tokens. Set it, or a restart invalidates live sessions. |
 | `BROWSER_NETWORK` | `browser-sessions` | Private network for containers. Unset ⇒ publish on loopback. |
+| `SESSION_RUNTIME` | `docker` | `docker` for isolated containers, `local` for host processes. |
 
 ## Security posture
 
@@ -102,6 +127,10 @@ What is already done:
 - Visitor IPs are HMAC-hashed for rate limiting, never stored raw.
 - `scripts/harden-network.sh` blocks containers from reaching private ranges and the
   cloud metadata endpoint (169.254.169.254). **Run it on any public deployment.**
+
+The `local` runtime has **none of the container protections above** — sessions share the
+host with the gateway. It exists for machines you control; do not point it at the public
+internet.
 
 What you must decide before opening it to the world — read
 [deploy/HARDENING.md](deploy/HARDENING.md):
@@ -117,7 +146,7 @@ What you must decide before opening it to the world — read
 
 | Path | What lives there |
 |------|------------------|
-| `server/` | Gateway: session manager, queue, Docker orchestration, VNC↔WebSocket bridge, REST API |
+| `server/` | Gateway: session manager, queue, both runtimes, VNC↔WebSocket bridge, REST API |
 | `web/` | React client: landing page, noVNC viewer, toolbar |
 | `browser-image/` | The session container: X, window manager, Chromium, VNC, control agent |
 | `deploy/` | TLS, VPS sizing, hardening notes |

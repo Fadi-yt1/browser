@@ -5,7 +5,8 @@ import { createServer } from 'node:http';
 import { execFile } from 'node:child_process';
 
 const PORT = Number(process.env.AGENT_PORT || 6070);
-const CDP = 'http://127.0.0.1:9222';
+// Each session gets its own DevTools port when several run on one host.
+const CDP = `http://127.0.0.1:${process.env.CDP_PORT || 9222}`;
 const BLOCKED_SCHEMES = new Set(['file:', 'chrome:', 'devtools:', 'view-source:', 'javascript:', 'data:']);
 
 const json = (res, code, body) => {
