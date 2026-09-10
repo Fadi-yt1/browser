@@ -43,16 +43,43 @@ const CHROMIUM_CANDIDATES = [
   'google-chrome-stable',
 ];
 
+let cachedChromium: string | null = null;
+
+/**
+ * Being on PATH is not proof of anything. Ubuntu ships /usr/bin/chromium-browser
+ * as a snap wrapper that exits without launching whenever snapd is unavailable —
+ * common on container-based VPS plans — and the failure only surfaces later as a
+ * session that never becomes ready. Ask the binary to identify itself instead.
+ */
+async function isUsable(binary: string): Promise<boolean> {
+  try {
+    const { stdout } = await run(binary, ['--version'], { timeout: 10_000 });
+    // A working browser prints e.g. "Chromium 141.0.7390.37". Requiring the version
+    // number rejects wrappers that print a chatty message and exit successfully.
+    return /chrom\w*\s+\d+\.[\d.]+/i.test(stdout);
+  } catch {
+    return false;
+  }
+}
+
 async function resolveChromium(): Promise<string> {
+  if (cachedChromium) return cachedChromium;
+  const rejected: string[] = [];
+
   for (const candidate of CHROMIUM_CANDIDATES) {
     if (!candidate) continue;
+    let resolved = candidate;
     try {
       const { stdout } = await run('which', [candidate]);
-      if (stdout.trim()) return stdout.trim();
+      if (!stdout.trim()) continue;
+      resolved = stdout.trim();
     } catch {
-      /* not on PATH */
+      continue; // not on PATH
     }
+    if (await isUsable(resolved)) return (cachedChromium = resolved);
+    rejected.push(resolved);
   }
+
   // Playwright installs a Chromium that works fine as a session browser.
   const pwRoot = process.env.PLAYWRIGHT_BROWSERS_PATH || '/opt/pw-browsers';
   try {
@@ -61,15 +88,20 @@ async function resolveChromium(): Promise<string> {
       const candidate = path.join(pwRoot, entry, 'chrome-linux', 'chrome');
       try {
         await fs.access(candidate);
-        return candidate;
       } catch {
-        /* keep looking */
+        continue;
       }
+      if (await isUsable(candidate)) return (cachedChromium = candidate);
+      rejected.push(candidate);
     }
   } catch {
     /* no Playwright install */
   }
-  throw new Error('no Chromium binary found; install chromium or set CHROMIUM_BIN');
+
+  const detail = rejected.length
+    ? ` Found but could not run: ${rejected.join(', ')} — on Ubuntu the chromium package is a snap that needs snapd; install a real .deb (google-chrome-stable) or set CHROMIUM_BIN.`
+    : '';
+  throw new Error(`no working Chromium binary found.${detail}`);
 }
 
 /** Ask the kernel for a free port, then hand it straight to the child. */

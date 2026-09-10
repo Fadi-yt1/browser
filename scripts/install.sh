@@ -139,7 +139,17 @@ if [[ "$RUNTIME" == "docker" ]]; then
   status_cmd="docker compose -f $INSTALL_DIR/docker-compose.yml logs -f gateway"
 else
   say "installing the Docker-free runtime"
+  set +e
   SERVICE_USER=driftwood INSTALL_DIR="$INSTALL_DIR" REPO_BRANCH="$REPO_BRANCH" ./scripts/install-local.sh
+  delegate_rc=$?
+  set -e
+  if (( delegate_rc == 3 )); then
+    # Installed and configured, but this host has no service manager to start it.
+    printf '\n\033[32m Driftwood is installed at %s.\033[0m\n' "$INSTALL_DIR"
+    echo "  Nothing is running yet — start it with the command printed above."
+    exit 0
+  fi
+  (( delegate_rc == 0 )) || die "the local runtime install failed (exit $delegate_rc)"
   status_cmd="journalctl -u driftwood -f"
 fi
 

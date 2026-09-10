@@ -32,15 +32,27 @@ if (( need_node )); then
   apt-get install -y -qq nodejs
 fi
 
-# Chromium: a real .deb on Debian, a snap on Ubuntu — fall back to Google Chrome there.
-if ! apt-get install -y -qq chromium 2>/dev/null && ! command -v chromium >/dev/null 2>&1; then
-  echo "==> chromium unavailable as a deb; installing Google Chrome instead"
+# A browser that runs, not merely one that is on PATH: Ubuntu's chromium package is a
+# snap wrapper that exits without launching when snapd is unavailable, which is normal on
+# container-based VPS plans. Ask each candidate for its version before trusting it.
+browser_works() {
+  for bin in chromium chromium-browser google-chrome google-chrome-stable; do
+    command -v "$bin" >/dev/null 2>&1 || continue
+    timeout 15 "$bin" --version 2>/dev/null | grep -qi chrom && return 0
+  done
+  return 1
+}
+
+apt-get install -y -qq chromium 2>/dev/null || true
+if ! browser_works; then
+  echo "==> no working Chromium (the distro package is a snap or missing); installing Google Chrome instead"
   curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
     | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg
   echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
     > /etc/apt/sources.list.d/google-chrome.list
   apt-get update -qq
   apt-get install -y -qq google-chrome-stable
+  browser_works || { echo "!! could not install a working browser; set CHROMIUM_BIN to one yourself"; exit 1; }
 fi
 
 id -u "$SERVICE_USER" >/dev/null 2>&1 || useradd --system --create-home --shell /usr/sbin/nologin "$SERVICE_USER"
@@ -85,7 +97,8 @@ if [[ ! -d /run/systemd/system ]]; then
    Then put it behind a process supervisor of your choice.
 
 MSG
-  exit 0
+  # Distinct status: everything installed, but nothing was started.
+  exit 3
 fi
 
 echo "==> installing service"
