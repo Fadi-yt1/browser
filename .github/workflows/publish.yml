@@ -41,7 +41,10 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=sha,format=short
-            type=raw,value=latest,enable={{is_default_branch}}
+            # Explicit rather than {{is_default_branch}}: the documented
+            # :latest pull must work regardless of which branch GitHub
+            # considers default.
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - uses: docker/build-push-action@v5
         with:
