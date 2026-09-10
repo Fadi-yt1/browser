@@ -101,7 +101,16 @@ if [[ -n "$health" ]]; then
   ok "answering on port $PORT"
   echo "        $health"
 else
-  warn "nothing answering on http://127.0.0.1:${PORT}/api/health"
+  # Distinguish "not started" from "started but broken": what is on the port?
+  listener=$(ss -ltnp 2>/dev/null | grep ":${PORT} " || true)
+  if [[ -z "$listener" ]]; then
+    bad "nothing is listening on port ${PORT} — the gateway is not running"
+    NOT_RUNNING=1
+  else
+    bad "something is listening on port ${PORT} but it is not answering /api/health"
+    echo "        $listener"
+    echo "        (another program may have taken the port)"
+  fi
 fi
 
 head_ "recent session errors"
@@ -120,6 +129,31 @@ else
   for p in "${PROBLEMS[@]}"; do echo "  - $p"; done
   echo
   echo "${BOLD}Most likely fix${OFF}"
+  if [[ -n "${NOT_RUNNING:-}" ]]; then
+    if [[ -d /run/systemd/system ]] && systemctl list-unit-files driftwood.service >/dev/null 2>&1; then
+      cat <<FIX
+  Start the service and check why it stopped:
+
+    sudo systemctl start driftwood
+    sudo systemctl status driftwood --no-pager
+    sudo journalctl -u driftwood -n 50 --no-pager
+FIX
+    elif [[ -d "$INSTALL_DIR" ]]; then
+      cat <<FIX
+  Nothing is running and there is no service on this host. Start it by hand:
+
+    cd $INSTALL_DIR
+    set -a; . ./.env; set +a
+    STATIC_DIR=$INSTALL_DIR/web/dist nohup node server/dist/index.js > /var/log/driftwood.log 2>&1 &
+
+  Then watch it with:  tail -f /var/log/driftwood.log
+FIX
+    else
+      echo "  Nothing is installed yet. Run the installer:"
+      echo "    curl -fsSL https://raw.githubusercontent.com/Fadi-yt1/browser/main/scripts/install.sh -o install.sh && bash install.sh"
+    fi
+    echo
+  fi
   if [[ -z "$FOUND_BROWSER" || " ${PROBLEMS[*]} " == *"does not run"* ]]; then
     cat <<'FIX'
   Install a real Chromium .deb. Ubuntu's package is a snap wrapper that cannot run
