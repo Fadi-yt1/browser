@@ -90,15 +90,48 @@ say "checking the gateway"
 [[ -f "$INSTALL_DIR/server/dist/index.js" ]] \
   || die "no install at $INSTALL_DIR — run scripts/install.sh first"
 
+port_held() { ss -ltn 2>/dev/null | grep -q ":${PORT} "; }
+
 start_gateway() {
   if [[ -d /run/systemd/system ]] && systemctl list-unit-files driftwood.service >/dev/null 2>&1; then
     systemctl restart driftwood
-  else
-    pkill -f "$INSTALL_DIR/server/dist/index.js" 2>/dev/null
-    ( cd "$INSTALL_DIR" && set -a && . ./.env && set +a \
-      && STATIC_DIR="$INSTALL_DIR/web/dist" nohup node server/dist/index.js \
-         > /var/log/driftwood.log 2>&1 & )
+    return 0
   fi
+
+  # The gateway may have been started with a relative path, so match on the
+  # process's working directory and command line rather than assuming either.
+  # Only processes proven to belong to this install are killed.
+  for pid in $(pgrep -f 'server/dist/index\.js' 2>/dev/null); do
+    cwd=$(readlink -f "/proc/$pid/cwd" 2>/dev/null)
+    cmd=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null)
+    if [[ "$cwd" == "$INSTALL_DIR" || "$cmd" == *"$INSTALL_DIR"* ]]; then
+      kill "$pid" 2>/dev/null
+    fi
+  done
+  # Anything still holding the port that is one of ours (a stale instance from an
+  # earlier layout) gets the same treatment; unrelated services are left alone.
+  for pid in $(ss -ltnp 2>/dev/null | grep ":${PORT} " | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u); do
+    cmd=$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null)
+    [[ "$cmd" == *"server/dist/index.js"* ]] && kill "$pid" 2>/dev/null
+  done
+  # Wait for the old process to release the port: starting too early means the new
+  # one dies with EADDRINUSE while the stale one keeps answering, which looks like
+  # a successful restart and is anything but.
+  for _ in $(seq 1 20); do
+    port_held || break
+    sleep 0.5
+  done
+  if port_held; then
+    die "port ${PORT} is still held by another process. Find it with: ss -ltnp | grep :${PORT}"
+  fi
+
+  ( cd "$INSTALL_DIR" && set -a && . ./.env && set +a \
+    && STATIC_DIR="$INSTALL_DIR/web/dist" nohup node server/dist/index.js \
+       > /var/log/driftwood.log 2>&1 & )
+  sleep 2
+  pgrep -f "node .*${INSTALL_DIR}/server/dist/index.js" >/dev/null \
+    || die "the gateway exited immediately. Last lines of /var/log/driftwood.log:
+$(tail -n 15 /var/log/driftwood.log 2>/dev/null | sed 's/^/    /')"
 }
 
 start_gateway
@@ -112,11 +145,34 @@ ok "answering: $health"
 
 # --- 4. prove a real session starts -----------------------------------------
 say "launching a real browser session"
-body=$(curl -sf --max-time 90 -X POST "$API/api/sessions" \
+# Capture the body AND the status: -f would throw away the error message, which is
+# the only thing that explains why a launch failed.
+raw=$(curl -s --max-time 120 -w '\n%{http_code}' -X POST "$API/api/sessions" \
   -H 'content-type: application/json' -d '{"width":1024,"height":700}' 2>/dev/null)
+code=$(tail -n1 <<<"$raw")
+body=$(sed '$d' <<<"$raw")
 
 if ! grep -q '"state":"ready"' <<<"$body"; then
-  echo "  response: ${body:-<none>}"
+  echo "  HTTP $code"
+  echo "  response: ${body:-<empty>}"
+  echo
+  echo "  last log lines:"
+  if [[ -d /run/systemd/system ]] && systemctl list-unit-files driftwood.service >/dev/null 2>&1; then
+    journalctl -u driftwood -n 15 --no-pager 2>/dev/null | sed 's/^/    /'
+  else
+    tail -n 15 /var/log/driftwood.log 2>/dev/null | sed 's/^/    /'
+  fi
+  echo
+  # A build predating the browser-validation fix accepts a stub that cannot launch.
+  if ! grep -q 'no working Chromium binary found' "$INSTALL_DIR/server/dist/lib/runtime-local.js" 2>/dev/null; then
+    cat <<UPDATE
+  This install predates the browser fix. Update it and try again:
+
+    cd $INSTALL_DIR && git pull && (cd server && npm install && npm run build)
+    sudo bash $INSTALL_DIR/scripts/finish-setup.sh
+
+UPDATE
+  fi
   die "the session did not start. Run scripts/doctor.sh for a full report."
 fi
 ok "a browser session started"
