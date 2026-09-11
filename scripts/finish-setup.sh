@@ -145,9 +145,10 @@ ok "answering: $health"
 
 # --- 4. prove a real session starts -----------------------------------------
 say "launching a real browser session"
+echo "  starting Chromium on this host; this can take up to a minute..."
 # Capture the body AND the status: -f would throw away the error message, which is
 # the only thing that explains why a launch failed.
-raw=$(curl -s --max-time 120 -w '\n%{http_code}' -X POST "$API/api/sessions" \
+raw=$(curl -s --max-time 75 -w '\n%{http_code}' -X POST "$API/api/sessions" \
   -H 'content-type: application/json' -d '{"width":1024,"height":700}' 2>/dev/null)
 code=$(tail -n1 <<<"$raw")
 body=$(sed '$d' <<<"$raw")
